@@ -17,7 +17,7 @@ import {
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import { login } from '../services/authServices';
+import { login, setAuthToken } from '../services/auth.service';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -36,25 +36,26 @@ export default function LoginPage() {
     setError('');
 
     const res = await login(email, password).then((res) => {
-      console.log("res", res.status, res.data)
+      console.log("res", res.status, res.data.token)
 
       //Success response block
       if (res.status === 200) {
         setIsLoading(false);
         if ((res as any).status === 200) {
+          setAuthToken((res as any).data?.token);
           setShowSnackbar(true);
           setSnackbarType('success');
           setSnackbarMessage('Login successful!');
           setTimeout(() => {
             setShowSnackbar(false);
-            // router.push('/dashboard');
-          }, 4000);
+            router.push('/dashboard');
+          }, 3000);
         }
 
       }
 
     }).catch((err) => {
-      console.log("err", err.status)
+      console.log("err", err)
       if (err.status === 400) {
         setIsLoading(false);
         setShowSnackbar(true);
@@ -136,7 +137,7 @@ export default function LoginPage() {
           )
         }
 
-         {/* Signup Redirect */}
+        {/* Signup Redirect */}
         <Box display="flex" justifyContent="center">
           <Typography variant="body2">
             New User?{' '}
@@ -148,7 +149,7 @@ export default function LoginPage() {
             </Link>
           </Typography>
         </Box>
-    
+
 
         {/* Snackbar for success or error */}
         {showSnackbar && (
