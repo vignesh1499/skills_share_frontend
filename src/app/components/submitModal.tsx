@@ -30,6 +30,7 @@ type SubmitModalProps = {
   open: boolean;
   onClose: () => void;
   onSubmit: () => Promise<{ success: boolean }>;
+  onSuccess?: () => Promise<void>;
   title: string;
   description: string;
   successMessage: string;
@@ -48,6 +49,7 @@ const SubmitModal: React.FC<SubmitModalProps> = React.memo(({
   errorMessage,
   actionLabel = 'Submit',
   cancelLabel = 'Cancel',
+  onSuccess
 }) => {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
@@ -66,6 +68,9 @@ const SubmitModal: React.FC<SubmitModalProps> = React.memo(({
     onSubmit()
       .then((result) => {
         setStatus(result.success ? 'success' : 'error');
+        if (result.success && onSuccess) {
+          onSuccess();
+        }
       })
       .catch(() => {
         setStatus('error');
@@ -139,6 +144,7 @@ const SubmitModal: React.FC<SubmitModalProps> = React.memo(({
       maxWidth="sm"
       fullScreen={fullScreen}
       PaperProps={{ sx: { p: 3, borderRadius: 3 } }}
+      sx={{ zIndex: 1400 }} 
     >
       <DialogTitle
         sx={{

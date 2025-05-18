@@ -46,10 +46,11 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      console.log('Attempting login with email:', email, 'and password:', password);
       const res = await login(email, password);
-      const token = res?.data?.token;
-
-      if (res.status === 200 && token) {
+      const token = res.data?.token;
+      console.log('Login response:', res);
+      if (res.statusCode === 200 && token) {
         setAuthToken(token);
         setSnackbar({
           open: true,
@@ -60,8 +61,6 @@ export default function LoginPage() {
           setSnackbar((prev) => ({ ...prev, open: false }));
           router.push('/dashboard');
         }, 2000);
-      } else {
-        throw new Error('Unexpected response');
       }
     } catch (err: any) {
       console.error('Login error:', err);

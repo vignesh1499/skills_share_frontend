@@ -40,7 +40,6 @@ const DashboardContent = () => {
   const [skillList, setSkillList] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Set role from JWT
   useEffect(() => {
     const token = getAuthToken();
     const decoded: any = token ? decodeToken(token) : null;
@@ -71,7 +70,6 @@ const DashboardContent = () => {
     }
   }, []);
 
-  // Fetch data on role change
   useEffect(() => {
     if (role === 'user') {
       loadTasks();
@@ -81,8 +79,8 @@ const DashboardContent = () => {
     }
   }, [role, loadTasks, loadSkills]);
 
-  const handleAddClick = (type: 'task' | 'skill') => {
-    setFormType(type);
+  const handleAddClick = () => {
+    setFormType('skill');
     setFormData(null);
     setIsEditMode(false);
     setOpenForm(true);
@@ -124,10 +122,10 @@ const DashboardContent = () => {
     if (formType === 'skill') await loadSkills();
   };
 
-  const hasTasks = role === 'user' && taskList.length > 0;
-  const hasSkills =
-    (role === 'provider' && skillList.length > 0) ||
-    (role === 'user' && skillList.some(skill => skill.status === 'open'));
+  const filteredSkills =
+    role === 'provider'
+      ? skillList
+      : skillList.filter(skill => skill.status === 'open');
 
   return (
     <>
@@ -137,12 +135,11 @@ const DashboardContent = () => {
           <Typography variant="h5">
             {role === 'provider' ? 'My Skills' : 'Offers'}
           </Typography>
-          <Button
-            variant="contained"
-            onClick={() => handleAddClick(role === 'user' ? 'task' : 'skill')}
-          >
-            {role === 'user' ? 'Add Task' : 'Add Skill'}
-          </Button>
+          {role === 'provider' && (
+            <Button variant="contained" onClick={handleAddClick}>
+              Add Skill
+            </Button>
+          )}
         </Box>
 
         {loading ? (
@@ -151,34 +148,29 @@ const DashboardContent = () => {
           <Suspense fallback={<Loader />}>
             <Box>
               {/* Skill Section */}
-              {hasSkills && (
-                <Box mb={4}>
-                  {role === 'user' && (
-                    <Typography variant="h6" gutterBottom>
-                      Available Skills
-                    </Typography>
-                  )}
-                  {skillList
-                    .filter(skill => role === 'provider' || skill.status === 'open')
-                    .map(skill => (
-                      <SkillCard
-                        key={skill.id}
-                        skill={skill}
-                        onEdit={() => handleEdit('skill', skill)}
-                        onDelete={() => handleDelete('skill', skill.id)}
-                        onSuccess={loadSkills}
-                      />
-                    ))}
-                </Box>
-              )}
+              <Box mb={4}>
+                {filteredSkills.length > 0 ? (
+                  filteredSkills.map(skill => (
+                    <SkillCard
+                      key={skill.id}
+                      skill={skill}
+                      onEdit={() => handleEdit('skill', skill)}
+                      onDelete={() => handleDelete('skill', skill.id)}
+                      onSuccess={loadSkills}
+                    />
+                  ))
+                ) : (
+                  <Typography>No offers currently.</Typography>
+                )}
+              </Box>
 
-              {/* Task Section */}
+              {/* Task Section for user */}
               {role === 'user' && (
                 <Box>
                   <Typography variant="h6" gutterBottom>
                     My Tasks
                   </Typography>
-                  {hasTasks ? (
+                  {taskList.length > 0 ? (
                     taskList.map(task => (
                       <TaskCard
                         key={task.taskId}
@@ -189,7 +181,7 @@ const DashboardContent = () => {
                       />
                     ))
                   ) : (
-                    <Typography variant="body1">No tasks available.</Typography>
+                    <Typography>No tasks available.</Typography>
                   )}
                 </Box>
               )}

@@ -25,6 +25,7 @@ import { postOffer } from '../services/skill.service';
 import { getAuthToken } from '../services/auth.service';
 import { useRole } from '../context/RoleContext';
 import { decodeToken } from '../utils/decodeToken';
+import { getTasks } from '../services/task.service';
 
 interface SkillCardProps {
   skill: Skill;
@@ -108,25 +109,82 @@ const SkillCard: React.FC<SkillCardProps> = React.memo(({ skill, onEdit, onDelet
         >
           Accept Offer
         </Button>
-        <CancelIcon sx={{ color: 'error.main' }} />
       </Box>
     )
   );
 
-  const renderOpenStatusButton = () => (
-    skill.status === 'open' && !isUser && (
-      <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-        <Button
-          variant="outlined"
-          size="small"
-          endIcon={<FolderOpenIcon />}
-          sx={{ borderRadius: 2 }}
-        >
-          Open
-        </Button>
-      </Box>
-    )
-  );
+  const renderOpenStatusButton = () => {
+    if (isUser) return null;
+
+    const commonBoxStyles = {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 1,
+      mt: 1,
+    };
+
+    const roundedIconStyles = {
+      backgroundColor: 'primary.main',
+      color: 'white',
+      borderRadius: '50%',
+      '&:hover': {
+        backgroundColor: 'primary.dark',
+      },
+    };
+
+    switch (skill.status) {
+      case 'open':
+        return (
+          <Box sx={commonBoxStyles}>
+            <Button
+              variant="outlined"
+              size="small"
+              endIcon={<FolderOpenIcon />}
+              sx={{ borderRadius: 2 }}
+            >
+              Open
+            </Button>
+          </Box>
+        );
+
+      case 'accepted':
+        return (
+          <Box sx={commonBoxStyles}>
+            <Button
+              variant="contained"
+              size="small"
+              color="success"
+              sx={{ borderRadius: 2 }}
+            >
+              Accepted
+            </Button>
+          </Box>
+        );
+
+      case 'completed':
+        return (
+          <Box sx={commonBoxStyles}>
+            <Button
+              variant="contained"
+              size="small"
+              color="success"
+              sx={{ borderRadius: 2 }}
+            >
+              Completed
+            </Button>
+            <IconButton sx={roundedIconStyles}>
+              <ThumbUpOffAltIcon />
+            </IconButton>
+          </Box>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+
+
 
   return (
     <>
@@ -200,7 +258,7 @@ const SkillCard: React.FC<SkillCardProps> = React.memo(({ skill, onEdit, onDelet
           open={isTaskFormOpen}
           onClose={toggleTaskForm(false)}
           initialValues={initialTaskValues}
-          onSuccess={onSuccess}
+          onSuccess={getTasks}
         />
       )}
     </>

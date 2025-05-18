@@ -18,15 +18,16 @@ import {
   useTheme,
   CircularProgress,
 } from '@mui/material';
-import { Grid } from '@material-ui/core';
 import TaskIcon from '@mui/icons-material/Task';
+import Grid from '@material-ui/core/Grid';
 
 import SubmitModal from './SubmitModal';
 import FormInput from './FormInput';
 import { taskSchema } from '../schemas/task.schema';
 import { Task } from '../types/task.types';
 import { defaultValues } from '../constants/taskValues';
-import { addTask, updateTask } from '../services/task.service';
+import { addTask, getTasks, updateTask } from '../services/task.service';
+import { get } from 'http';
 
 interface TaskFormProps {
   open: boolean;
@@ -42,19 +43,20 @@ export default function TaskForm({
   onClose,
   initialValues = {},
   isEditMode = false,
-  onSubmit,
-  onSuccess
+  onSuccess,
 }: TaskFormProps) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
-
-  const defaultFormValues = useMemo(() => ({
-    ...defaultValues,
-    expected_start_date: today,
-    ...initialValues,
-  }), [initialValues, today]);
+  const defaultFormValues = useMemo(
+    () => ({
+      ...defaultValues,
+      expected_start_date: today,
+      ...initialValues,
+    }),
+    [initialValues, today]
+  );
 
   const methods = useForm<Task>({
     resolver: yupResolver(taskSchema),
@@ -79,8 +81,9 @@ export default function TaskForm({
 
   const submitHandler: SubmitHandler<Task> = useCallback(
     async (data) => {
-      const valid = await trigger();
-      if (!valid) return;
+      const isValidForm = await trigger();
+      if (!isValidForm) return;
+
       setFormData(data);
       setOpenConfirm(true);
     },
@@ -96,13 +99,15 @@ export default function TaskForm({
     try {
       const response = isEditMode ? await updateTask(formData) : await addTask(formData);
       console.log(response);
+
       setStatusMessage({
         success: isEditMode ? 'Task updated successfully!' : 'Task created successfully!',
       });
 
       setOpenConfirm(false);
       onClose();
-      onSuccess && await onSuccess();
+      await getTasks();
+      onSuccess && (await onSuccess());
 
       return { success: true };
     } catch (error) {
@@ -111,8 +116,30 @@ export default function TaskForm({
     }
   }, [formData, isEditMode, onClose, onSuccess]);
 
+  const formFields = [
+    { name: 'task_name', label: 'Task Name' },
+    { name: 'description', label: 'Description', props: { multiline: true, rows: 3 } },
+    { name: 'expected_start_date', label: 'Expected Start Date', props: { type: 'date', inputProps: { min: today }, defaultValue: today } },
+    { name: 'expected_working_hours', label: 'Expected Hours', props: { type: 'number' } },
+    { name: 'hourly_rate', label: 'Hourly Rate', props: { type: 'text' } },
+    { name: 'rate_currency', label: 'Currency' },
+    { name: 'category', label: 'Category' },
+  ];
+
   return (
     <>
+      {/* Submit Modal should be rendered above everything else */}
+      <SubmitModal
+        open={openConfirm}
+        onClose={() => setOpenConfirm(false)}
+        onSubmit={handleFinalSubmit}
+        title={isEditMode ? 'Update Task' : 'Create Task'}
+        description="Are you sure you want to proceed?"
+        successMessage={statusMessage.success || ''}
+        errorMessage={statusMessage.error || ''}
+        onSuccess={onSuccess}
+      />
+
       <Dialog
         open={open}
         onClose={onClose}
@@ -137,15 +164,7 @@ export default function TaskForm({
           <FormProvider {...methods}>
             <Box component="form" onSubmit={handleSubmit(submitHandler)} noValidate sx={{ mt: 1 }}>
               <Grid container spacing={2}>
-                {[
-                  { name: 'task_name', label: 'Task Name', props: {} },
-                  { name: 'description', label: 'Description', props: { multiline: true, rows: 3 } },
-                  { name: 'expected_start_date', label: 'Expected Start Date', props: { type: 'date', inputProps: { min: today }, defaultValue: today } },
-                  { name: 'expected_working_hours', label: 'Expected Hours', props: { type: 'number' } },
-                  { name: 'hourly_rate', label: 'Hourly Rate', props: { type: 'text' } },
-                  { name: 'rate_currency', label: 'Currency', props: {} },
-                  { name: 'category', label: 'Category', props: {} },
-                ].map((field, index) => (
+                {formFields.map((field, index) => (
                   <Grid item xs={12} sm={6} key={index}>
                     <FormInput
                       name={field.name as keyof Task}
@@ -175,16 +194,6 @@ export default function TaskForm({
           </Button>
         </DialogActions>
       </Dialog>
-
-      <SubmitModal
-        open={openConfirm}
-        onClose={() => setOpenConfirm(false)}
-        onSubmit={handleFinalSubmit}
-        title={isEditMode ? 'Update Task' : 'Create Task'}
-        description="Are you sure you want to proceed?"
-        successMessage={statusMessage.success || ''}
-        errorMessage={statusMessage.error || ''}
-      />
     </>
   );
 }

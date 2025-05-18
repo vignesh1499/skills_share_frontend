@@ -7,7 +7,7 @@ import Cookies from "js-cookie"
 export const login = async (email: string, password: string) => {
   try {
     const response = await apiClient.post("/auth/login", { email, password });
-    return response;
+    return response?.data;
   } catch (error) {
     throw error;
   }
