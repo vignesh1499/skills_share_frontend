@@ -1,6 +1,6 @@
-// SkillForm.tsx
 'use client';
 
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   useForm,
   FormProvider,
@@ -8,142 +8,190 @@ import {
 } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import {
-  Box, Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  Typography, Avatar, useMediaQuery, useTheme, MenuItem,
+  Box,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Typography,
+  Avatar,
+  useMediaQuery,
+  useTheme,
+  CircularProgress,
 } from '@mui/material';
-import { Grid } from "@material-ui/core";
-import { useEffect, useState } from 'react';
-import PersonIcon from '@mui/icons-material/Person';
-
-import SubmitModal from '../components/SubmitModal';
-import { providerSkillSchema } from '../schemas/skill.schema';
-import { ProviderSkill } from '../types/skill.types';
-import { defaultValues } from '../constants/skillValues';
-import { addSkill, updateSkill } from '../services/skill.service';
+import { Grid } from '@material-ui/core';
+import BuildIcon from '@mui/icons-material/Build';
+import SubmitModal from './SubmitModal';
 import FormInput from './FormInput';
+import { skillFormSchema } from '../schemas/skill.schema';
+import { Skill } from '../types/skill.types';
+import { addSkill, updateSkill } from '../services/skill.service';
+import { defaultValues } from '../constants/skillValues';
+import { number } from 'yup';
 
 interface SkillFormProps {
   open: boolean;
   onClose: () => void;
-  initialValues?: Partial<ProviderSkill>;
+  initialValues?: Partial<Skill>;
   isEditMode?: boolean;
-  onSuccessReload?: () => Promise<void>;
-  onSubmit: (data: ProviderSkill) => Promise<void>;
+   onSubmit?: (data: Skill) => Promise<void>;
+  onSuccess?: () => Promise<void>;
 }
 
 export default function SkillForm({
-  open, onClose, initialValues = {}, isEditMode = false, onSubmit, onSuccessReload
+  open,
+  onClose,
+  initialValues,
+  isEditMode = false,
+  onSubmit,
+  onSuccess,
 }: SkillFormProps) {
-  const [openConfirm, setOpenConfirm] = useState(false);
-  const [formData, setFormData] = useState<ProviderSkill | null>(null);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
-
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const methods = useForm<ProviderSkill>({
-    resolver: yupResolver(providerSkillSchema),
+  const mergedDefaultValues = useMemo(
+    () => ({ ...defaultValues, ...initialValues }),
+    [initialValues]
+  );
+
+  const methods = useForm<Skill>({
+    resolver: yupResolver(skillFormSchema),
     mode: 'onChange',
-    defaultValues: { ...defaultValues, ...initialValues },
+    defaultValues: mergedDefaultValues,
   });
 
   const {
-    handleSubmit, trigger, reset, formState: { isValid, isSubmitting },
+    handleSubmit,
+    trigger,
+    reset,
+    getValues,
+    formState: { isValid, isSubmitting },
   } = methods;
 
+  const [openConfirm, setOpenConfirm] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ success?: string; error?: string }>({});
+
   useEffect(() => {
-    reset({ ...defaultValues, ...initialValues });
-  }, [initialValues, reset]);
+    reset(mergedDefaultValues);
+  }, [mergedDefaultValues, reset]);
 
-  const submitHandler: SubmitHandler<ProviderSkill> = async (data) => {
-    const valid = await trigger();
-    if (!valid) return;
-    setFormData(data);
-    setOpenConfirm(true);
-  };
+  const submitHandler: SubmitHandler<Skill> = useCallback(
+    async (data) => {
+      const valid = await trigger();
+      if (!valid) return;
 
-  const handleFinalSubmit = async (): Promise<{ success: boolean }> => {
-    if (!formData) {
-      setErrorMessage("Form data is missing.");
-      return { success: false };
-    }
+      setOpenConfirm(true); // proceed to confirmation modal
+    },
+    [trigger]
+  );
 
-    try {
-      await onSubmit(formData);
-      const resposne = isEditMode ? await updateSkill(formData) : await addSkill(formData);
-      console.log("Form API response", resposne);
-      setSuccessMessage(isEditMode ? 'Skill updated successfully!' : 'Skill registered successfully!');
-      setErrorMessage('');
-      setOpenConfirm(false);
-      onClose();
-      if (onSuccessReload) {
-        onSuccessReload();
-      }
-      return { success: true };
-    } catch (err) {
-      setErrorMessage('Something went wrong. Please try again.');
-      setSuccessMessage('');
-      return { success: false };
-    }
-  };
+const handleFinalSubmit = useCallback(async () => {
+  try {
+    const rawData = getValues();
+
+    const data = {
+      ...rawData,
+      experience: Number(rawData.experience),
+      hourly_rate: Number(rawData.hourly_rate),
+    };
+
+    const response = isEditMode ? await updateSkill(data) : await addSkill(data);
+    console.log('Success:', response);
+
+    setStatusMessage({
+      success: isEditMode ? 'Skill updated successfully!' : 'Skill created successfully!',
+    });
+    setOpenConfirm(false);
+    onClose();
+    if (onSuccess) await onSuccess();
+    return { success: true };
+  } catch (error) {
+    console.error('Submission error:', error);
+    setStatusMessage({ error: 'Something went wrong. Please try again.' });
+    return { success: false };
+  }
+}, [getValues, isEditMode, onClose, onSuccess]);
 
   return (
     <>
-      <Dialog open={open} onClose={onClose} fullScreen={fullScreen} maxWidth="md" fullWidth disableEnforceFocus
-        disableAutoFocus>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        fullScreen={fullScreen}
+        maxWidth="md"
+        fullWidth
+        disableEnforceFocus
+        disableAutoFocus
+      >
         <DialogTitle>
           <Box display="flex" alignItems="center" gap={1}>
             <Avatar sx={{ bgcolor: 'primary.main' }}>
-              <PersonIcon />
+              <BuildIcon />
             </Avatar>
             <Typography variant="h6">
-              {isEditMode ? 'Update Skill' : 'Register Provider Skill'}
+              {isEditMode ? 'Update Skill' : 'Create Skill'}
             </Typography>
           </Box>
         </DialogTitle>
 
         <DialogContent dividers>
           <FormProvider {...methods}>
-            <Box component="form" onSubmit={handleSubmit(submitHandler)} noValidate>
+            <Box component="form" onSubmit={handleSubmit(submitHandler)} noValidate sx={{ mt: 1 }}>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
-                  <FormInput name="category" label="Category" />
+                  <FormInput name="category" label="Category" fullWidth />
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <FormInput name="experience" label="Experience (years)" type="number" />
+                  <FormInput name="experience" label="Experience (Years)" type="number" fullWidth />
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <FormInput name="nature_of_work" label="Nature of Work" defaultValue={initialValues?.nature_of_work || 'onsite'} select fullWidth>
-                    <MenuItem value="onsite">Onsite</MenuItem>
-                    <MenuItem value="online">Online</MenuItem>
-                  </FormInput>
+                  <FormInput
+                    name="nature_of_work"
+                    label="Nature of Work"
+                    select
+                    options={[
+                      { label: 'Onsite', value: 'onsite' },
+                      { label: 'Online', value: 'online' },
+                    ]}
+                    fullWidth
+                  />
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <FormInput name="hourly_rate" label="Hourly Rate" type="text" />
+                  <FormInput name="hourly_rate" label="Hourly Rate" type="number" fullWidth />
                 </Grid>
               </Grid>
             </Box>
           </FormProvider>
         </DialogContent>
 
-        <DialogActions>
-          <Button onClick={onClose} color="secondary">Cancel</Button>
-          <Button onClick={handleSubmit(submitHandler)} variant="contained" color="primary" disabled={!isValid || isSubmitting}>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={onClose} color="secondary" disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit(submitHandler)}
+            variant="contained"
+            color="primary"
+            disabled={!isValid || isSubmitting}
+            startIcon={isSubmitting ? <CircularProgress size={18} /> : null}
+          >
             {isEditMode ? 'Update' : 'Submit'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <SubmitModal
-        open={openConfirm}
-        onClose={() => setOpenConfirm(false)}
-        onSubmit={handleFinalSubmit}
-        title={isEditMode ? 'Update Skill' : 'Register Provider Skill'}
-        description="Are you sure you want to proceed?"
-        successMessage={successMessage}
-        errorMessage={errorMessage}
-      />
+      {openConfirm && (
+        <SubmitModal
+          open={openConfirm}
+          onClose={() => setOpenConfirm(false)}
+          onSubmit={ handleFinalSubmit}
+          title={isEditMode ? 'Update Skill' : 'Create Skill'}
+          description="Are you sure you want to proceed?"
+          successMessage={statusMessage?.success || ''}
+          errorMessage={statusMessage?.error || ''}
+        />
+      )}
     </>
   );
 }

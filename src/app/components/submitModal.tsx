@@ -1,6 +1,6 @@
 'use client';
 
-import * as React from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
   Dialog,
@@ -18,11 +18,13 @@ import { CheckCircle, Error as ErrorIcon } from '@mui/icons-material';
 import { TransitionProps } from '@mui/material/transitions';
 
 const Transition = React.forwardRef(function Transition(
-  props: TransitionProps & { children: React.ReactElement<any, any> },
+  props: TransitionProps & { children: React.ReactElement },
   ref: React.Ref<unknown>
 ) {
   return <Slide direction="up" ref={ref} {...props} />;
 });
+
+type StatusType = 'idle' | 'submitting' | 'success' | 'error';
 
 type SubmitModalProps = {
   open: boolean;
@@ -36,7 +38,7 @@ type SubmitModalProps = {
   cancelLabel?: string;
 };
 
-const SubmitModal: React.FC<SubmitModalProps> = ({
+const SubmitModal: React.FC<SubmitModalProps> = React.memo(({
   open,
   onClose,
   onSubmit,
@@ -50,58 +52,70 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const [status, setStatus] = React.useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
-  const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const [status, setStatus] = useState<StatusType>('idle');
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleSubmit = async () => {
-    setStatus('submitting');
-    try {
-      const result = await onSubmit();
-      setStatus(result.success ? 'success' : 'error');
-
-      // Auto-close modal after 3 seconds
-      timeoutRef.current = setTimeout(() => {
-        handleClose();
-      }, 5000);
-    } catch {
-      setStatus('error');
-      timeoutRef.current = setTimeout(() => {
-        handleClose();
-      }, 5000);
-    }
-  };
-
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setStatus('idle');
     onClose();
-  };
+  }, [onClose]);
 
-  // Cleanup timeout on unmount
-  React.useEffect(() => {
+  const handleSubmit = useCallback(() => {
+    setStatus('submitting');
+
+    onSubmit()
+      .then((result) => {
+        setStatus(result.success ? 'success' : 'error');
+      })
+      .catch(() => {
+        setStatus('error');
+      })
+      .finally(() => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(handleClose, 5000);
+      });
+  }, [onSubmit, handleClose]);
+
+  useEffect(() => {
+    if (!open && timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+      setStatus('idle');
+    }
     return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
     };
-  }, []);
+  }, [open]);
 
-  const renderContent = () => {
+  const renderContent = useMemo(() => {
+    const commonStyles = {
+      display: 'flex',
+      flexDirection: 'column' as const,
+      alignItems: 'center',
+      mt: 2,
+    };
+
     switch (status) {
       case 'submitting':
         return (
-          <Box display="flex" flexDirection="column" alignItems="center" mt={2}>
+          <Box sx={commonStyles}>
             <CircularProgress />
             <Typography mt={2}>Submitting...</Typography>
           </Box>
         );
       case 'success':
         return (
-          <Box display="flex" flexDirection="column" alignItems="center" mt={2} color="green">
+          <Box sx={{ ...commonStyles, color: 'green' }}>
             <CheckCircle fontSize="large" />
             <Typography mt={1}>{successMessage}</Typography>
           </Box>
         );
       case 'error':
         return (
-          <Box display="flex" flexDirection="column" alignItems="center" mt={2} color="red">
+          <Box sx={{ ...commonStyles, color: 'red' }}>
             <ErrorIcon fontSize="large" />
             <Typography mt={1}>{errorMessage}</Typography>
           </Box>
@@ -113,7 +127,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
           </Typography>
         );
     }
-  };
+  }, [status, description, successMessage, errorMessage]);
 
   return (
     <Dialog
@@ -126,14 +140,29 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
       fullScreen={fullScreen}
       PaperProps={{ sx: { p: 3, borderRadius: 3 } }}
     >
-      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+      <DialogTitle
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          pb: 1,
+        }}
+      >
         {title}
       </DialogTitle>
 
-      <DialogContent sx={{ py: 2 }}>{renderContent()}</DialogContent>
+      <DialogContent sx={{ py: 2 }}>{renderContent}</DialogContent>
 
       {status === 'idle' && (
-        <DialogActions sx={{ px: 3, pb: 2, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+        <DialogActions
+          sx={{
+            px: 3,
+            pb: 2,
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: 2,
+          }}
+        >
           <Button variant="outlined" onClick={handleClose}>
             {cancelLabel}
           </Button>
@@ -144,6 +173,6 @@ const SubmitModal: React.FC<SubmitModalProps> = ({
       )}
     </Dialog>
   );
-};
+});
 
 export default SubmitModal;

@@ -1,24 +1,30 @@
-'use client';
-
+import React, { useEffect, useMemo } from 'react';
 import {
   TextField,
   FormControl,
   Checkbox,
   FormControlLabel,
+  MenuItem,
 } from '@mui/material';
-import { useFormContext, FieldValues, Path, } from 'react-hook-form';
 import { Grid } from '@material-ui/core';
+import { useFormContext, FieldValues, Path } from 'react-hook-form';
+
+type SelectOption = {
+  label: string;
+  value: string;
+};
 
 type FormInputProps<T extends FieldValues> = {
   name: Path<T>;
   label: string;
   type?: string;
   select?: boolean;
-  children?: React.ReactNode;
+  options?: SelectOption[];
   multiline?: boolean;
   rows?: number;
   fullWidth?: boolean;
-  defaultValue?: string | number | boolean; // Add defaultValue prop to handle default value
+  defaultValue?: string | number | boolean;
+  inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
 };
 
 const FormInput = <T extends FieldValues>({
@@ -26,31 +32,50 @@ const FormInput = <T extends FieldValues>({
   label,
   type = 'text',
   select = false,
-  children,
+  options = [],
   multiline = false,
   rows,
   fullWidth = true,
-  defaultValue , // Handling defaultValue
+  defaultValue,
+  inputProps,
 }: FormInputProps<T>) => {
   const {
     register,
     formState: { errors },
-    setValue, // Added setValue hook
+    setValue,
+    getValues,
   } = useFormContext<T>();
+
+  // Prevent unnecessary setValue if already set
+  useEffect(() => {
+    const currentValue = getValues(name);
+    if (defaultValue !== undefined && currentValue !== defaultValue) {
+      setValue(name, defaultValue as any, { shouldValidate: false, shouldDirty: false });
+    }
+  }, [defaultValue, name, setValue, getValues]);
 
   const error = errors[name];
   const helperText = error?.message?.toString() || '';
 
-  // Set default value for the field if provided
-  if (defaultValue !== undefined) {
-    setValue(name, defaultValue as any); 
-  }
+  const menuItems = useMemo(() => (
+    options.map(option => (
+      <MenuItem key={option.value} value={option.value}>
+        {option.label}
+      </MenuItem>
+    ))
+  ), [options]);
 
   if (type === 'checkbox') {
     return (
       <Grid item xs={12}>
         <FormControlLabel
-          control={<Checkbox {...register(name)} color="primary" defaultChecked={defaultValue as boolean} />}
+          control={
+            <Checkbox
+              {...register(name)}
+              color="primary"
+              defaultChecked={Boolean(defaultValue)}
+            />
+          }
           label={label}
         />
       </Grid>
@@ -71,13 +96,14 @@ const FormInput = <T extends FieldValues>({
           multiline={multiline}
           rows={rows}
           fullWidth={fullWidth}
-          defaultValue={defaultValue} // Use defaultValue for TextField
+          inputProps={inputProps}
+          defaultValue={defaultValue}
         >
-          {select ? children : null}
+          {select && menuItems}
         </TextField>
       </FormControl>
     </Grid>
   );
 };
 
-export default FormInput;
+export default React.memo(FormInput);

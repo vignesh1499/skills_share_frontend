@@ -12,44 +12,49 @@ import {
 import PersonIcon from "@mui/icons-material/Person";
 import BusinessIcon from "@mui/icons-material/Business";
 import { useRole } from "../context/RoleContext";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { decodeToken } from "../utils/decodeToken";
-import Cookies from "js-cookie";
+import {getAuthToken, logout} from "../services/auth.service";
+import {useRouter} from "next/navigation";
+
 
 export const Navbar = () => {
   const { role, setRole } = useRole();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [email, setEmail] = useState<string>(""); // For client-only email
+  const [email, setEmail] = useState("");
+
+  const router = useRouter();
   const open = Boolean(anchorEl);
 
   useEffect(() => {
-    // Only runs on client
-    const token = Cookies.get("token");
-    if (token) {
-      const decoded = decodeToken(token);
-      if (decoded?.email) {
-        setEmail(decoded.email);
-      }
+    const token = getAuthToken();
+    if (!token) return;
 
-      const validRole = decoded?.role === "user" || decoded?.role === "provider"
-        ? decoded.role
-        : "user";
-      setRole(validRole);
+    const decoded = decodeToken(token);
+    if (decoded?.email) {
+      setEmail(decoded.email);
     }
-  }, [setRole]);
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    const decodedRole = decoded?.role;
+    if ((decodedRole === "user" || decodedRole === "provider") && decodedRole !== role) {
+      setRole(decodedRole);
+    }
+  }, []); // only runs on mount
+
+  const handleMenuOpen = useCallback((event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
-  };
+  }, []);
 
-  const handleMenuClose = () => {
+  const handleMenuClose = useCallback(() => {
     setAnchorEl(null);
-  };
+  }, []);
 
-  const handleLogout = () => {
-    Cookies.remove("token");
-    window.location.href = "/login"; // You can also use Next.js router.push here
-  };
+
+  const handleLogout = useCallback(async () => {
+    await logout();
+    router.push("/login");
+  }, []);
+
 
   return (
     <AppBar position="static" sx={{ backgroundColor: "#fff", color: "#000", boxShadow: 1 }}>
@@ -67,7 +72,6 @@ export const Navbar = () => {
             </IconButton>
           </Tooltip>
 
-          {/* Only show email when available to avoid hydration mismatch */}
           {email && <Typography variant="body1">{email}</Typography>}
 
           <Menu

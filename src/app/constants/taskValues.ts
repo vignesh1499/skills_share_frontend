@@ -1,7 +1,7 @@
-import { TaskValues } from "../types/task.types";
+import { Task} from "../types/task.types";
 
-export const defaultValues: TaskValues = {
-    task_name: '',
+export const defaultValues: Task = {
+    task_name: "",
     description: '',
     expected_start_date: '',
     expected_working_hours: 0,

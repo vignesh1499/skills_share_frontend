@@ -1,3 +1,4 @@
+import React from "react";
 import {
   Card,
   CardContent,
@@ -11,47 +12,45 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 
 interface TaskCardProps {
- id?: string;
+  id?: string;
   task_name: string;
   description: string;
   expected_start_date: string;
   expected_working_hours: number;
-  hourly_rate: string; 
+  hourly_rate: number;
   rate_currency: string;
   category: string;
-  task_completed?: boolean ;
+  task_completed?: boolean;
   onEdit: () => void;
   onDelete: () => Promise<void>;
   onToggleComplete: () => Promise<void>;
 }
 
-export const TaskCard = ({
-  category,
+const TaskCard = React.memo(({
   task_name,
   description,
   expected_start_date,
   expected_working_hours,
   hourly_rate,
   rate_currency,
-  task_completed,
+  category,
+  task_completed = false,
   onEdit,
   onDelete,
   onToggleComplete,
 }: TaskCardProps) => {
+  const statusText = task_completed ? "Completed ✅" : "Pending ⏳";
+  const statusColor = task_completed ? "text.primary" : "success.main";
+  const cardBgColor = task_completed ? "#e8f5e9" : "inherit";
+
   return (
-    <Card
-      sx={{
-        borderRadius: "16px",
-        my: 1,
-        backgroundColor: task_completed ? "#e8f5e9" : "inherit",
-      }}
-    >
+    <Card sx={{ borderRadius: 2, my: 1, backgroundColor: cardBgColor }}>
       <CardContent>
         <Box
           display="flex"
           justifyContent="space-between"
-          alignItems={{ xs: "start", sm: "center" }}
           flexDirection={{ xs: "column", sm: "row" }}
+          alignItems={{ xs: "start", sm: "center" }}
         >
           <Box flex={1}>
             <Typography variant="h6">{task_name}</Typography>
@@ -68,25 +67,22 @@ export const TaskCard = ({
             <Typography variant="body2">
               <strong>Rate:</strong> {rate_currency} {hourly_rate}/hr
             </Typography>
-            <Typography
-              variant="body2"
-              sx={{ mt: 1 }}
-              color={task_completed ? "text.primary" : "success.main"}
-            >
-              <strong>Status:</strong> {task_completed ? "Completed ✅" : "Pending ⏳"}
+            <Typography variant="body2" sx={{ mt: 1 }} color={statusColor}>
+              <strong>Status:</strong> {statusText}
             </Typography>
           </Box>
 
           <Box mt={{ xs: 2, sm: 0 }}>
-            <IconButton onClick={onEdit}>
+            <IconButton aria-label="edit" onClick={onEdit}>
               <EditIcon />
             </IconButton>
-            <IconButton onClick={onDelete}>
+            <IconButton aria-label="delete" onClick={onDelete}>
               <DeleteIcon />
             </IconButton>
             <IconButton
+              aria-label="toggle complete"
               onClick={onToggleComplete}
-              color={task_completed ? "default" : "success"}
+              color={task_completed ? "success" : "default"}
             >
               <CheckCircleRoundedIcon />
             </IconButton>
@@ -95,4 +91,7 @@ export const TaskCard = ({
       </CardContent>
     </Card>
   );
-};
+});
+
+TaskCard.displayName = "TaskCard";
+export default TaskCard;

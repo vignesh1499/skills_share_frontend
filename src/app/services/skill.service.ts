@@ -27,3 +27,21 @@ export const updateSkill = async (formData: any) => {
     }
 };
 
+export const deleteSkill = async (skillId: any) => {
+    try {
+        const response = await apiClient.delete(`/skill/delete/${skillId}`);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const postOffer = async (skillId:any) => {
+    try {
+        const response = await apiClient.patch(`/skill/postoffer/${skillId}`)
+        return response.data
+    }catch(error){
+         throw error;
+    }
+}
+

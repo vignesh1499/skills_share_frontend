@@ -5,11 +5,12 @@ import {
   useEffect,
   useMemo,
   ReactNode,
+  useCallback,
 } from "react";
 import { decodeToken } from "../utils/decodeToken";
 import Cookies from "js-cookie";
 
-type Role = "user" | "provider" | ""; // extendable
+type Role = "user" | "provider" | "";
 type RoleContextType = {
   role: Role;
   setRole: (role: Role) => void;
@@ -17,7 +18,7 @@ type RoleContextType = {
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
-export const useRole = () => {
+export const useRole = (): RoleContextType => {
   const context = useContext(RoleContext);
   if (!context) {
     throw new Error("useRole must be used within a RoleProvider");
@@ -28,23 +29,29 @@ export const useRole = () => {
 export const RoleProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRoleState] = useState<Role>("");
 
+  // Extract role from localStorage or token on first load
   useEffect(() => {
-    const token = Cookies.get("token");
-    const decoded = token ? decodeToken(token) : null;
-    const extractedRole =
-      decoded?.role === "user" || decoded?.role === "provider"
-        ? decoded.role
-        : "user";
-    setRoleState(extractedRole);
-    localStorage.setItem("role", extractedRole);
+    let initialRole: Role = localStorage.getItem("role") as Role;
+
+    if (!initialRole) {
+      const token = Cookies.get("token");
+      const decoded = token ? decodeToken(token) : null;
+      initialRole =
+        decoded?.role === "user" || decoded?.role === "provider"
+          ? decoded.role
+          : "user";
+      localStorage.setItem("role", initialRole);
+    }
+
+    setRoleState(initialRole);
   }, []);
 
-  const setRole = (newRole: Role) => {
+  const setRole = useCallback((newRole: Role) => {
     setRoleState(newRole);
     localStorage.setItem("role", newRole);
-  };
+  }, []);
 
-  const value = useMemo(() => ({ role, setRole }), [role]);
+  const value = useMemo(() => ({ role, setRole }), [role, setRole]);
 
   return (
     <RoleContext.Provider value={value}>

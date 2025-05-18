@@ -1,10 +1,14 @@
-export type ProviderSkill = {
-  id?: string;
-  experience: number;
-  hourly_rate: number;
-  providerId?: string;
+export type Skill = {
+  id?: number | undefined;
+  providerId?: string | undefined;
+  userId?: string | undefined;
   category: string;
-  nature_of_work: string;
-  created_at?: string;
-  updated_at?: string;
+  experience: number;
+  nature_of_work: 'onsite' | 'online';
+  hourly_rate: number;
+  status?: 'open' | 'accepted' | 'completed' | 'rejected' | null | undefined;
+  completion?: boolean | undefined;
+  approval?: boolean | undefined;
+  created_at?: string | undefined;
+  updated_at?: string | undefined;
 };

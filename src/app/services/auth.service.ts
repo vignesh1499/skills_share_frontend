@@ -1,6 +1,8 @@
 import apiClient from "./api_client";
 import Cookies from "js-cookie"
 
+
+
 //Login API Function
 export const login = async (email: string, password: string) => {
   try {
@@ -42,5 +44,13 @@ export const removeAuthToken = () => {
   Cookies.remove('token');
 };
 
+
+export const logout = async () => {
+  try {
+    removeAuthToken();
+  } catch (error) {
+    throw error;
+  }
+};
 
 

@@ -11,9 +11,19 @@ export const addTask = async (taskData: any) => {
 };
 
 //Update Task API Function
-export const updateTask = async (taskId: string, taskData: any) => {
+export const updateTask = async (taskData: any) => {
   try {
     const response = await apiClient.put(`/task/update`, taskData);
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
+//Delete Task API Function
+export const deleteTask = async (taskId: any) => {
+  try {
+    const response = await apiClient.delete(`/task/delete/${taskId}`);
     return response;
   } catch (error) {
     throw error;
@@ -29,9 +39,9 @@ export const getTasks = async () => {
   }
 };
 
-export const completeTask = async (taskId: string) => {
+export const completeTask = async (taskId: any) => {
   try {
-    const response = await apiClient.put("tasks/mark_task_complete",taskId);
+    const response = await apiClient.patch(`task/mark_task_complete/${taskId}`);
     return response.data;
   } catch (error) {
     throw error;

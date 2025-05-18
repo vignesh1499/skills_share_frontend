@@ -1,89 +1,190 @@
-// TaskForm.tsx
-'use client';
-
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, useMediaQuery, useTheme, Box, Paper
-} from '@mui/material';
-import { FormProvider, useForm } from 'react-hook-form';
+  useForm,
+  FormProvider,
+  SubmitHandler,
+} from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
-import { taskSchema } from '../schemas/task.schema';
-import { TaskValues } from '../types/task.types';
-import { defaultValues } from '../constants/taskValues';
-import FormInput from '../components/FormInput';
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Typography,
+  Avatar,
+  useMediaQuery,
+  useTheme,
+  CircularProgress,
+} from '@mui/material';
 import { Grid } from '@material-ui/core';
+import TaskIcon from '@mui/icons-material/Task';
+
+import SubmitModal from './SubmitModal';
+import FormInput from './FormInput';
+import { taskSchema } from '../schemas/task.schema';
+import { Task } from '../types/task.types';
+import { defaultValues } from '../constants/taskValues';
+import { addTask, updateTask } from '../services/task.service';
 
 interface TaskFormProps {
   open: boolean;
   onClose: () => void;
-  initialValues?: Partial<TaskValues>;
+  initialValues?: Partial<Task>;
   isEditMode?: boolean;
-  onSubmit: (data: TaskValues) => Promise<void>;
+  onSubmit?: (data: Task) => Promise<void>;
+  onSuccess?: () => Promise<void>;
 }
 
 export default function TaskForm({
-  open, onClose, initialValues = {}, isEditMode = false, onSubmit,
+  open,
+  onClose,
+  initialValues = {},
+  isEditMode = false,
+  onSubmit,
+  onSuccess
 }: TaskFormProps) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const methods = useForm<TaskValues>({
+  const today = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  const defaultFormValues = useMemo(() => ({
+    ...defaultValues,
+    expected_start_date: today,
+    ...initialValues,
+  }), [initialValues, today]);
+
+  const methods = useForm<Task>({
     resolver: yupResolver(taskSchema),
     mode: 'onChange',
-    defaultValues: { ...defaultValues, ...initialValues },
+    defaultValues: defaultFormValues,
   });
 
   const {
-    handleSubmit, trigger, formState: { isValid, isSubmitting },
+    handleSubmit,
+    trigger,
+    reset,
+    formState: { isValid, isSubmitting },
   } = methods;
 
-  const submitHandler = async (data: TaskValues) => {
-    const valid = await trigger();
-    if (!valid) return;
-    await onSubmit(data);
-    onClose();
-  };
+  const [formData, setFormData] = useState<Task | null>(null);
+  const [openConfirm, setOpenConfirm] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ success?: string; error?: string }>({});
+
+  useEffect(() => {
+    reset(defaultFormValues);
+  }, [defaultFormValues, reset]);
+
+  const submitHandler: SubmitHandler<Task> = useCallback(
+    async (data) => {
+      const valid = await trigger();
+      if (!valid) return;
+      setFormData(data);
+      setOpenConfirm(true);
+    },
+    [trigger]
+  );
+
+  const handleFinalSubmit = useCallback(async () => {
+    if (!formData) {
+      setStatusMessage({ error: 'Form data is missing.' });
+      return { success: false };
+    }
+
+    try {
+      const response = isEditMode ? await updateTask(formData) : await addTask(formData);
+      console.log(response);
+      setStatusMessage({
+        success: isEditMode ? 'Task updated successfully!' : 'Task created successfully!',
+      });
+
+      setOpenConfirm(false);
+      onClose();
+      onSuccess && await onSuccess();
+
+      return { success: true };
+    } catch (error) {
+      setStatusMessage({ error: 'Something went wrong. Please try again.' });
+      return { success: false };
+    }
+  }, [formData, isEditMode, onClose, onSuccess]);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={fullScreen}>
-      <FormProvider {...methods}>
-        <Box component="form" onSubmit={handleSubmit(submitHandler)} noValidate>
-          <DialogTitle>{isEditMode ? 'Edit Task' : 'Create Task'}</DialogTitle>
-          <DialogContent dividers>
-            <Paper elevation={0} sx={{ p: 2 }}>
+    <>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        fullScreen={fullScreen}
+        maxWidth="md"
+        fullWidth
+        disableEnforceFocus
+        disableAutoFocus
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Avatar sx={{ bgcolor: 'primary.main' }}>
+              <TaskIcon />
+            </Avatar>
+            <Typography variant="h6">
+              {isEditMode ? 'Update Task' : 'Create Task'}
+            </Typography>
+          </Box>
+        </DialogTitle>
+
+        <DialogContent dividers>
+          <FormProvider {...methods}>
+            <Box component="form" onSubmit={handleSubmit(submitHandler)} noValidate sx={{ mt: 1 }}>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <FormInput name="task_name" label="Task Name" fullWidth />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormInput name="description" label="Description" multiline rows={3} fullWidth />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormInput name="expected_start_date" label="Expected Start Date" type="date" fullWidth />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormInput name="expected_working_hours" label="Expected Hours" type="number" fullWidth />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormInput name="hourly_rate" label="Hourly Rate" type="text" fullWidth />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormInput name="rate_currency" label="Currency" fullWidth />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormInput name="category" label="Category" fullWidth />
-                </Grid>
+                {[
+                  { name: 'task_name', label: 'Task Name', props: {} },
+                  { name: 'description', label: 'Description', props: { multiline: true, rows: 3 } },
+                  { name: 'expected_start_date', label: 'Expected Start Date', props: { type: 'date', inputProps: { min: today }, defaultValue: today } },
+                  { name: 'expected_working_hours', label: 'Expected Hours', props: { type: 'number' } },
+                  { name: 'hourly_rate', label: 'Hourly Rate', props: { type: 'text' } },
+                  { name: 'rate_currency', label: 'Currency', props: {} },
+                  { name: 'category', label: 'Category', props: {} },
+                ].map((field, index) => (
+                  <Grid item xs={12} sm={6} key={index}>
+                    <FormInput
+                      name={field.name as keyof Task}
+                      label={field.label}
+                      fullWidth
+                      {...field.props}
+                    />
+                  </Grid>
+                ))}
               </Grid>
-            </Paper>
-          </DialogContent>
-          <DialogActions sx={{ justifyContent: 'flex-end', px: 3, py: 2 }}>
-            <Button onClick={onClose} color="secondary">Cancel</Button>
-            <Button type="submit" variant="contained" color="primary" disabled={!isValid || isSubmitting}>
-              {isEditMode ? 'Update' : 'Submit'}
-            </Button>
-          </DialogActions>
-        </Box>
-      </FormProvider>
-    </Dialog>
+            </Box>
+          </FormProvider>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={onClose} color="secondary" disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit(submitHandler)}
+            variant="contained"
+            color="primary"
+            disabled={!isValid || isSubmitting}
+            startIcon={isSubmitting ? <CircularProgress size={18} /> : null}
+          >
+            {isEditMode ? 'Update' : 'Submit'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <SubmitModal
+        open={openConfirm}
+        onClose={() => setOpenConfirm(false)}
+        onSubmit={handleFinalSubmit}
+        title={isEditMode ? 'Update Task' : 'Create Task'}
+        description="Are you sure you want to proceed?"
+        successMessage={statusMessage.success || ''}
+        errorMessage={statusMessage.error || ''}
+      />
+    </>
   );
 }
